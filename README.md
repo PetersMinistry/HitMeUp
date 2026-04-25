@@ -65,7 +65,17 @@ Supports Thunderbird / Windows notification behavior where available.
 
 ## Screenshots
 
-Project screenshots are available in the `screenshots/` folder and showcase the active reminders view, due reminder workflow, and options panel.
+### Due Reminder Workflow
+
+![Due Reminder](screenshots/01-due-reminder.png)
+
+### Active Reminders View
+
+![Active Reminders](screenshots/02-active-reminders.png)
+
+### Options Panel
+
+![Options](screenshots/03-options-page.png)
 
 ---
 
