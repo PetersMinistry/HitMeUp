@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-Initial release.
+Initial public release.
 
 ### Features
 
