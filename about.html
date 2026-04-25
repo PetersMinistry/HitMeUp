@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>About HitMeUp Reminder</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --ink: #17212f;
+      --muted: #5c6f82;
+      --panel: #ffffff;
+      --line: #d8e1ea;
+      --page: #eef3f7;
+      --blue: #2563eb;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.5;
+    }
+
+    .shell {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .mascot {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(23, 33, 47, 0.16));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.2;
+    }
+
+    .tagline {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .panel {
+      margin-top: 14px;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(23, 33, 47, 0.08);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    p {
+      margin: 0 0 10px;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    code {
+      color: var(--blue);
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pill {
+      padding: 4px 8px;
+      color: var(--muted);
+      background: #f6f9fc;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <img class="mascot" src="icons/icon-128.png" alt="">
+    <div>
+      <h1>HitMeUp Reminder</h1>
+      <p class="tagline">Set reminders on emails so follow-ups do not get lost.</p>
+      <div class="meta">
+        <span class="pill">Version 1.0.0</span>
+        <span class="pill">Author: Peter Moreno</span>
+        <span class="pill">Local-first</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>Overview</h2>
+    <p>HitMeUp Reminder adds simple, reliable reminders directly inside Thunderbird so important emails do not slip through the cracks.</p>
+    <p>Set reminders on any message and come back to it at the right time, whether it is a follow-up, response, or task.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Features</h2>
+    <ul>
+      <li>Set reminders from the right-click menu or toolbar.</li>
+      <li>Use quick presets: test, 1 hour, 1 day, or custom date/time.</li>
+      <li>Review Due and Active reminders from the toolbar dropdown.</li>
+      <li>Search active reminders quickly.</li>
+      <li>Open, edit, or cancel active reminders from the Active list.</li>
+      <li>Snooze or dismiss reminders with one click.</li>
+      <li>Open the original email directly from reminders.</li>
+      <li>See reminder status at a glance with the toolbar badge.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Email Integration</h2>
+    <ul>
+      <li>Optionally mark emails unread when reminders become due.</li>
+      <li>Optionally move emails back to Inbox when reminders become due.</li>
+      <li>Apply a red <code>HitMeUp Reminder</code> tag to tracked messages.</li>
+      <li>Update the existing reminder when the same email is reminded again.</li>
+      <li>Work safely across multiple accounts.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Privacy</h2>
+    <ul>
+      <li>No data is sent externally.</li>
+      <li>No tracking or analytics are used.</li>
+      <li>All reminders are stored locally inside Thunderbird.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Permissions</h2>
+    <p>Permissions are used only to support reminder functionality, such as opening emails, updating message state when enabled, applying reminder tags, and displaying notifications.</p>
+  </section>
+</main>
+</body>
+</html>

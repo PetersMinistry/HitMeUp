@@ -1,0 +1,803 @@
+const CHECK_INTERVAL = 5000;
+const CUSTOM_POPUP_WIDTH = 420;
+const CUSTOM_POPUP_HEIGHT = 420;
+const CUSTOM_POPUP_URL = browser.runtime.getURL("custom_reminder.html");
+const DUE_NOTIFICATION_ID = "hitmeup-reminder-due";
+const REMINDER_TAG_KEY = "hitmeup-reminder";
+const REMINDER_TAG_NAME = "HitMeUp Reminder";
+const REMINDER_TAG_COLOR = "#CC0000";
+const DEFAULT_SETTINGS = {
+  notifyOnDue: true,
+  markUnreadOnDue: true,
+  moveToInboxOnDue: true,
+  testDelaySeconds: 10,
+  defaultReminderHours: 1,
+  defaultReminderDays: 1
+};
+
+console.log("HitMeUp Reminder background loaded");
+
+const accountNameCache = new Map();
+
+function normalizeSettings(settings) {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(settings || {})
+  };
+}
+
+async function getSettings() {
+  const stored = await browser.storage.local.get("settings");
+  return normalizeSettings(stored.settings);
+}
+
+async function ensureReminderTag() {
+  if (!browser.messages) return false;
+
+  try {
+    if (browser.messages.listTags) {
+      const tags = await browser.messages.listTags();
+      const existingTag = tags.find((tag) => tag.key === REMINDER_TAG_KEY);
+
+      if (existingTag) {
+        if (
+          browser.messages.updateTag &&
+          (existingTag.color !== REMINDER_TAG_COLOR || existingTag.tag !== REMINDER_TAG_NAME)
+        ) {
+          await browser.messages.updateTag(REMINDER_TAG_KEY, {
+            tag: REMINDER_TAG_NAME,
+            color: REMINDER_TAG_COLOR
+          });
+        }
+        return true;
+      }
+
+      if (browser.messages.createTag) {
+        await browser.messages.createTag(REMINDER_TAG_KEY, REMINDER_TAG_NAME, REMINDER_TAG_COLOR);
+        return true;
+      }
+    }
+
+    if (browser.messages.tags && browser.messages.tags.list) {
+      const tags = await browser.messages.tags.list();
+      const existingTag = tags.find((tag) => tag.key === REMINDER_TAG_KEY);
+
+      if (existingTag) {
+        if (
+          browser.messages.tags.update &&
+          (existingTag.color !== REMINDER_TAG_COLOR || existingTag.tag !== REMINDER_TAG_NAME)
+        ) {
+          await browser.messages.tags.update(REMINDER_TAG_KEY, {
+            tag: REMINDER_TAG_NAME,
+            color: REMINDER_TAG_COLOR
+          });
+        }
+        return true;
+      }
+
+      await browser.messages.tags.create(REMINDER_TAG_KEY, REMINDER_TAG_NAME, REMINDER_TAG_COLOR);
+      return true;
+    }
+  } catch (error) {
+    if (String(error && error.message).includes("already")) return true;
+    console.error("Unable to ensure HitMeUp Reminder mail tag", error);
+  }
+
+  return false;
+}
+
+function isSameReminderMessage(left, right) {
+  if (!left || !right) return false;
+  if (left.headerMessageId && right.headerMessageId) {
+    return left.headerMessageId === right.headerMessageId;
+  }
+  return left.messageId && right.messageId && String(left.messageId) === String(right.messageId);
+}
+
+function getMessageTagKeys(message) {
+  if (!message || !Array.isArray(message.tags)) return [];
+
+  return message.tags
+    .map((tag) => typeof tag === "string" ? tag : tag && tag.key)
+    .filter(Boolean);
+}
+
+async function resolveReminderMessage(reminder) {
+  if (!reminder) return null;
+
+  if (reminder.messageId) {
+    try {
+      return await browser.messages.get(reminder.messageId);
+    } catch (error) {
+      console.error("Unable to get HitMeUp Reminder message by session id", error);
+    }
+  }
+
+  if (!reminder.headerMessageId || !browser.messages.query) return null;
+
+  try {
+    const query = {
+      headerMessageId: reminder.headerMessageId,
+      messagesPerPage: 10
+    };
+
+    const result = await browser.messages.query(query);
+    const messages = result && result.messages ? result.messages : [];
+    const message = messages.find((item) => {
+      return !reminder.accountId || (item.folder && item.folder.accountId === reminder.accountId);
+    }) || messages[0] || null;
+
+    if (message) {
+      reminder.messageId = message.id;
+      reminder.folderId = message.folder && message.folder.id;
+      reminder.accountId = message.folder && message.folder.accountId;
+      reminder.headerMessageId = reminder.headerMessageId || message.headerMessageId;
+    }
+
+    return message;
+  } catch (error) {
+    console.error("Unable to resolve HitMeUp Reminder message by header id", error);
+    return null;
+  }
+}
+
+async function updateReminderTag(reminder, shouldTag) {
+  if (!reminder) return;
+
+  if (shouldTag) {
+    const tagReady = await ensureReminderTag();
+    if (!tagReady) return;
+  }
+
+  try {
+    const message = await resolveReminderMessage(reminder);
+    if (!message) return;
+
+    const tags = getMessageTagKeys(message);
+    const hasTag = tags.includes(REMINDER_TAG_KEY);
+
+    if (shouldTag && !hasTag) {
+      await browser.messages.update(message.id, {
+        tags: [...tags, REMINDER_TAG_KEY]
+      });
+    }
+
+    if (!shouldTag && hasTag) {
+      await browser.messages.update(message.id, {
+        tags: tags.filter((tag) => tag !== REMINDER_TAG_KEY)
+      });
+    }
+  } catch (error) {
+    console.error("Unable to update HitMeUp Reminder mail tag", error);
+  }
+}
+
+async function getAccountName(accountId) {
+  if (!accountId || !browser.accounts || !browser.accounts.get) return "";
+  if (accountNameCache.has(accountId)) return accountNameCache.get(accountId);
+
+  try {
+    const account = await browser.accounts.get(accountId, false);
+    const accountName = account && (account.name || account.identityName || account.id);
+    accountNameCache.set(accountId, accountName || "");
+    return accountName || "";
+  } catch (error) {
+    console.error("Unable to get HitMeUp Reminder account name", error);
+    accountNameCache.set(accountId, "");
+    return "";
+  }
+}
+
+function formatMenuDuration(value, unit) {
+  const label = value === 1 ? unit : `${unit}s`;
+  return `${value} ${label}`;
+}
+
+function formatBadgeCount(count) {
+  return count > 9 ? "9+" : String(count);
+}
+
+async function syncReminderMenus() {
+  if (!browser.menus || !browser.menus.update) return;
+
+  const settings = await getSettings();
+
+  try {
+    await browser.menus.update("remind-10sec", {
+      title: `In ${formatMenuDuration(settings.testDelaySeconds, "second")} (TEST)`
+    });
+    await browser.menus.update("remind-1hour", {
+      title: `In ${formatMenuDuration(settings.defaultReminderHours, "hour")}`
+    });
+    await browser.menus.update("remind-1day", {
+      title: `In ${formatMenuDuration(settings.defaultReminderDays, "day")}`
+    });
+  } catch (error) {
+    console.error("Unable to update HitMeUp Reminder menu labels", error);
+  }
+}
+
+async function updateToolbar(reminders) {
+  if (!browser.browserAction) return;
+
+  const reminderCount = reminders.length;
+  const dueReminders = reminders.filter((reminder) => reminder.triggered);
+  const dueCount = dueReminders.length;
+  const badgeText = dueCount
+    ? formatBadgeCount(dueCount)
+    : reminderCount
+      ? formatBadgeCount(reminderCount)
+      : "";
+  const title = reminderCount
+    ? dueCount
+      ? `${dueCount} due`
+      : `${reminderCount} active`
+    : "HitMeUp Reminder";
+
+  try {
+    await browser.browserAction.setBadgeText({ text: badgeText });
+    await browser.browserAction.setTitle({ title });
+
+    if (browser.browserAction.setBadgeBackgroundColor) {
+      await browser.browserAction.setBadgeBackgroundColor({
+        color: dueCount ? "#b00020" : "#2f80ed"
+      });
+    }
+  } catch (error) {
+    console.error("Unable to update reminder toolbar button", error);
+  }
+}
+
+async function createMessageSnapshot(message) {
+  let fullMessage = message;
+
+  try {
+    fullMessage = await browser.messages.get(message.id);
+  } catch (error) {
+    console.error("Unable to get full HitMeUp Reminder message details", error);
+  }
+
+  const accountId = fullMessage.folder && fullMessage.folder.accountId;
+
+  return {
+    messageId: fullMessage.id || message.id,
+    headerMessageId: fullMessage.headerMessageId || message.headerMessageId,
+    subject: fullMessage.subject || message.subject || "(No subject)",
+    folderId: fullMessage.folder && fullMessage.folder.id,
+    accountId,
+    accountName: await getAccountName(accountId)
+  };
+}
+
+function createReminderFromSnapshot(message, remindAt) {
+  return {
+    id: `${message.messageId}-${Date.now()}`,
+    messageId: message.messageId,
+    headerMessageId: message.headerMessageId,
+    subject: message.subject || "(No subject)",
+    folderId: message.folderId,
+    accountId: message.accountId,
+    accountName: message.accountName || "",
+    remindAt,
+    triggered: false,
+    returnedToInbox: false
+  };
+}
+
+async function createReminder(message, delayMs) {
+  return createReminderFromSnapshot(await createMessageSnapshot(message), Date.now() + delayMs);
+}
+
+async function addReminder(reminder) {
+  const reminders = await getReminders();
+
+  const existingReminder = reminders.find((item) => isSameReminderMessage(item, reminder));
+  let savedReminder = reminder;
+
+  if (existingReminder) {
+    savedReminder = existingReminder;
+    Object.assign(existingReminder, {
+      messageId: reminder.messageId || existingReminder.messageId,
+      headerMessageId: reminder.headerMessageId || existingReminder.headerMessageId,
+      subject: reminder.subject || existingReminder.subject,
+      folderId: reminder.folderId || existingReminder.folderId,
+      accountId: reminder.accountId || existingReminder.accountId,
+      accountName: reminder.accountName || existingReminder.accountName,
+      remindAt: reminder.remindAt,
+      triggered: false,
+      returnedToInbox: false
+    });
+  } else {
+    reminders.push(reminder);
+  }
+
+  const dedupedReminders = reminders.filter((item) => {
+    return item === savedReminder || !isSameReminderMessage(item, savedReminder);
+  });
+
+  await updateReminderTag(savedReminder, true);
+  await saveReminders(dedupedReminders);
+  await syncPopupReminders();
+}
+
+function getMessageFromMenuClick(info) {
+  if (info.selectedMessages && info.selectedMessages.messages.length) {
+    return info.selectedMessages.messages[0];
+  }
+
+  return null;
+}
+
+function getReminderMenuAction(menuItemId) {
+  const id = String(menuItemId || "");
+
+  if (id === "remind-10sec") return "10sec";
+  if (id === "remind-1hour") return "1hour";
+  if (id === "remind-1day") return "1day";
+  if (id === "remind-custom") return "custom";
+
+  return "";
+}
+
+async function getReminders() {
+  const stored = await browser.storage.local.get("reminders");
+  return stored.reminders || [];
+}
+
+async function saveReminders(reminders) {
+  await browser.storage.local.set({ reminders });
+  await updateToolbar(reminders);
+}
+
+async function getPopupReminders() {
+  const reminders = await getReminders();
+  const enrichedReminders = await Promise.all(reminders.map(async (reminder) => ({
+    ...reminder,
+    accountName: reminder.accountName || (await getAccountName(reminder.accountId))
+  })));
+
+  return enrichedReminders
+    .slice()
+    .sort((a, b) => {
+      if (a.triggered !== b.triggered) return a.triggered ? -1 : 1;
+      return a.remindAt - b.remindAt;
+    });
+}
+
+async function syncPopupReminders() {
+  await browser.storage.local.set({
+    popupReminders: await getPopupReminders()
+  });
+}
+
+async function openReminderAlert() {
+  const reminders = await getReminders();
+  await updateToolbar(reminders);
+}
+
+async function showDueNotification(dueReminders, settings) {
+  if (!browser.notifications || !dueReminders.length) return;
+  if (!settings.notifyOnDue) return;
+
+  const notificationTitle = dueReminders.length === 1
+    ? "HitMeUp Reminder due"
+    : `${dueReminders.length} HitMeUp reminders due`;
+  const notificationMessage = dueReminders.length === 1
+    ? dueReminders[0].subject || "(No subject)"
+    : "Click the HitMeUp Reminder toolbar button to review them.";
+
+  try {
+    const notificationId = `${DUE_NOTIFICATION_ID}-${Date.now()}`;
+    const notificationOptions = {
+      type: "basic",
+      iconUrl: browser.runtime.getURL("icons/icon-96.png"),
+      title: notificationTitle,
+      message: notificationMessage,
+      priority: 2,
+      isClickable: true
+    };
+
+    try {
+      await browser.notifications.create(notificationId, notificationOptions);
+      return;
+    } catch (error) {
+      console.error("Unable to show rich HitMeUp Reminder notification", error);
+    }
+
+    await browser.notifications.create(notificationId, {
+      type: "basic",
+      title: notificationTitle,
+      message: notificationMessage
+    });
+  } catch (error) {
+    console.error("Unable to show HitMeUp Reminder notification", error);
+  }
+}
+
+async function openReminderMessage(reminder) {
+  const openAttempts = [];
+
+  if (reminder.messageId) {
+    openAttempts.push(
+      { messageId: reminder.messageId, location: "tab", active: true },
+      { messageId: reminder.messageId, location: "window" }
+    );
+  }
+
+  if (reminder.headerMessageId) {
+    openAttempts.push(
+      { headerMessageId: reminder.headerMessageId, location: "tab", active: true },
+      { headerMessageId: reminder.headerMessageId, location: "window" }
+    );
+  }
+
+  for (const openProperties of openAttempts) {
+    try {
+      await browser.messageDisplay.open(openProperties);
+      return true;
+    } catch (error) {
+      console.error("Unable to open HitMeUp Reminder message", error);
+    }
+  }
+
+  return false;
+}
+
+async function findInboxFolder(accountId) {
+  if (!accountId) return null;
+
+  if (browser.folders && browser.folders.query) {
+    try {
+      const inboxFolders = await browser.folders.query({
+        accountId,
+        specialUse: ["inbox"]
+      });
+      if (inboxFolders && inboxFolders.length) return inboxFolders[0];
+    } catch (error) {
+      console.error("Unable to query Inbox folder directly", error);
+    }
+  }
+
+  if (!browser.accounts || !browser.accounts.get) return null;
+
+  const account = await browser.accounts.get(accountId, true);
+  const stack = account && account.rootFolder ? [account.rootFolder] : [];
+
+  while (stack.length) {
+    const folder = stack.shift();
+    if (folder.specialUse && folder.specialUse.includes("inbox")) return folder;
+    if (folder.subFolders) stack.push(...folder.subFolders);
+  }
+
+  return null;
+}
+
+async function findMessageAfterMove(reminder, inboxFolder) {
+  if (!reminder.headerMessageId || !browser.messages.query) return null;
+
+  const query = {
+    headerMessageId: reminder.headerMessageId,
+    messagesPerPage: 10
+  };
+
+  if (inboxFolder && inboxFolder.id) {
+    query.folderId = inboxFolder.id;
+  }
+
+  const result = await browser.messages.query(query);
+  return result && result.messages && result.messages.length ? result.messages[0] : null;
+}
+
+async function returnReminderToInbox(reminder, settings) {
+  if (reminder.returnedToInbox || !reminder.messageId) return;
+
+  if (settings.markUnreadOnDue) {
+    try {
+      await browser.messages.update(reminder.messageId, { read: false });
+    } catch (error) {
+      console.error("Unable to mark HitMeUp Reminder message unread", error);
+    }
+  }
+
+  if (!settings.moveToInboxOnDue) {
+    reminder.returnedToInbox = true;
+    return;
+  }
+
+  try {
+    const message = await browser.messages.get(reminder.messageId);
+    reminder.headerMessageId = reminder.headerMessageId || message.headerMessageId;
+    reminder.subject = reminder.subject || message.subject || "(No subject)";
+    reminder.folderId = reminder.folderId || (message.folder && message.folder.id);
+    reminder.accountId = reminder.accountId || (message.folder && message.folder.accountId);
+    reminder.accountName = reminder.accountName || (await getAccountName(reminder.accountId));
+
+    const accountId = reminder.accountId || (message.folder && message.folder.accountId);
+    const inboxFolder = await findInboxFolder(accountId);
+
+    if (!inboxFolder) {
+      reminder.returnedToInbox = true;
+      return;
+    }
+
+    const currentFolderId = message.folder && message.folder.id;
+    const inboxFolderId = inboxFolder.id;
+    const moveDestination = inboxFolderId || inboxFolder;
+
+    if (!inboxFolderId || currentFolderId !== inboxFolderId) {
+      await updateReminderTag(reminder, true);
+      await browser.messages.move([reminder.messageId], moveDestination);
+      const movedMessage = await findMessageAfterMove(reminder, inboxFolder);
+      if (movedMessage) {
+        reminder.messageId = movedMessage.id;
+        reminder.folderId = movedMessage.folder && movedMessage.folder.id;
+        reminder.accountId = movedMessage.folder && movedMessage.folder.accountId;
+        reminder.accountName = await getAccountName(reminder.accountId);
+        if (settings.markUnreadOnDue) {
+          await browser.messages.update(movedMessage.id, { read: false });
+        }
+        await updateReminderTag(reminder, true);
+      }
+    } else {
+      await updateReminderTag(reminder, true);
+    }
+
+    reminder.returnedToInbox = true;
+  } catch (error) {
+    console.error("Unable to move HitMeUp Reminder message to Inbox", error);
+  }
+}
+
+if (browser.notifications && browser.notifications.onClicked) {
+  browser.notifications.onClicked.addListener(async (notificationId) => {
+    if (!notificationId.startsWith(DUE_NOTIFICATION_ID)) return;
+
+    if (browser.browserAction && browser.browserAction.openPopup) {
+      try {
+        await syncPopupReminders();
+        await browser.browserAction.openPopup();
+      } catch (error) {
+        console.error("Unable to open HitMeUp Reminder dropdown", error);
+      }
+    }
+  });
+}
+
+async function initializeReminderUi() {
+  const settings = await getSettings();
+  const reminders = await getReminders();
+  await browser.storage.local.set({ settings });
+  if (reminders.length) {
+    await ensureReminderTag();
+  }
+  await updateToolbar(reminders);
+  await syncPopupReminders();
+}
+
+initializeReminderUi().catch((error) => {
+  console.error("Unable to initialize reminder UI", error);
+});
+
+// ===== MENU =====
+browser.menus.create({
+  id: "reminder-root",
+  title: "Set Reminder",
+  contexts: ["message_list"]
+});
+
+browser.menus.create({
+  id: "remind-10sec",
+  parentId: "reminder-root",
+  title: "In 10 seconds (TEST)",
+  contexts: ["message_list"]
+});
+
+browser.menus.create({
+  id: "remind-1hour",
+  parentId: "reminder-root",
+  title: "In 1 hour",
+  contexts: ["message_list"]
+});
+
+browser.menus.create({
+  id: "remind-1day",
+  parentId: "reminder-root",
+  title: "In 1 day",
+  contexts: ["message_list"]
+});
+
+browser.menus.create({
+  id: "remind-custom",
+  parentId: "reminder-root",
+  title: "Pick date and time...",
+  contexts: ["message_list"]
+});
+
+syncReminderMenus().catch((error) => {
+  console.error("Unable to sync HitMeUp Reminder menu labels", error);
+});
+
+// ===== CLICK =====
+browser.menus.onClicked.addListener(async (info) => {
+  const settings = await getSettings();
+  const action = getReminderMenuAction(info.menuItemId);
+
+  const delayMap = {
+    "10sec": settings.testDelaySeconds * 1000,
+    "1hour": settings.defaultReminderHours * 60 * 60 * 1000,
+    "1day": settings.defaultReminderDays * 24 * 60 * 60 * 1000
+  };
+
+  if (!action) return;
+
+  const msg = getMessageFromMenuClick(info);
+  if (!msg) return;
+
+  if (action === "custom") {
+    const pendingCustomReminder = await createMessageSnapshot(msg);
+    const reminders = await getReminders();
+    const existingReminder = reminders.find((item) => isSameReminderMessage(item, pendingCustomReminder));
+
+    if (existingReminder) {
+      pendingCustomReminder.existingRemindAt = existingReminder.remindAt;
+    }
+
+    await browser.storage.local.set({ pendingCustomReminder });
+    await browser.windows.create({
+      url: CUSTOM_POPUP_URL,
+      type: "popup",
+      width: CUSTOM_POPUP_WIDTH,
+      height: CUSTOM_POPUP_HEIGHT
+    });
+    return;
+  }
+
+  const delay = delayMap[action];
+  if (!delay) return;
+
+  await addReminder(await createReminder(msg, delay));
+});
+
+browser.runtime.onMessage.addListener(async (message) => {
+  if (!message || !message.type) return;
+
+  if (message.type === "open-options") {
+    await browser.runtime.openOptionsPage();
+    return;
+  }
+
+  if (message.type === "settings-updated") {
+    await syncReminderMenus();
+    await syncPopupReminders();
+    return;
+  }
+
+  if (message.type === "dismiss-all-due") {
+    const reminders = await getReminders();
+    const activeReminders = reminders.filter((reminder) => !reminder.triggered);
+    const dueReminders = reminders.filter((reminder) => reminder.triggered);
+
+    for (const reminder of dueReminders) {
+      await updateReminderTag(reminder, false);
+    }
+
+    await saveReminders(activeReminders);
+    await syncPopupReminders();
+    return;
+  }
+
+  if (message.type === "edit-reminder-time") {
+    if (!message.reminderId) return;
+
+    const reminders = await getReminders();
+    const reminder = reminders.find((item) => String(item.id) === String(message.reminderId));
+    if (!reminder) return;
+
+    await browser.storage.local.set({
+      pendingCustomReminder: {
+        messageId: reminder.messageId,
+        headerMessageId: reminder.headerMessageId,
+        subject: reminder.subject,
+        folderId: reminder.folderId,
+        accountId: reminder.accountId,
+        accountName: reminder.accountName,
+        existingRemindAt: reminder.remindAt
+      }
+    });
+
+    await browser.windows.create({
+      url: CUSTOM_POPUP_URL,
+      type: "popup",
+      width: CUSTOM_POPUP_WIDTH,
+      height: CUSTOM_POPUP_HEIGHT
+    });
+    return;
+  }
+
+  if (message.type === "create-custom-reminder") {
+    const stored = await browser.storage.local.get("pendingCustomReminder");
+    const pendingReminder = stored.pendingCustomReminder;
+    const remindAt = Number(message.remindAt);
+
+    if (!pendingReminder || !Number.isFinite(remindAt) || remindAt <= Date.now()) return;
+
+    await addReminder(createReminderFromSnapshot(pendingReminder, remindAt));
+    await browser.storage.local.remove("pendingCustomReminder");
+    return;
+  }
+
+  if (!message.reminderId) return;
+
+  const reminders = await getReminders();
+  const reminder = reminders.find((item) => String(item.id) === String(message.reminderId));
+
+  if (!reminder) {
+    await syncPopupReminders();
+    return;
+  }
+
+  if (message.type === "open-reminder-message") {
+    await openReminderMessage(reminder);
+  }
+
+  if (message.type === "snooze-reminder") {
+    const delayMs = Number(message.delayMs);
+    if (!Number.isFinite(delayMs) || delayMs <= 0) {
+      await syncPopupReminders();
+      return;
+    }
+
+    reminder.remindAt = Date.now() + delayMs;
+    reminder.triggered = false;
+    reminder.returnedToInbox = false;
+    await updateReminderTag(reminder, true);
+  }
+
+  if (message.type === "dismiss-reminder") {
+    const reminderIndex = reminders.findIndex((item) => String(item.id) === String(message.reminderId));
+    const removedReminders = reminders.splice(reminderIndex, 1);
+    if (removedReminders.length) {
+      await updateReminderTag(removedReminders[0], false);
+    }
+  }
+
+  await saveReminders(reminders);
+  await syncPopupReminders();
+});
+
+// ===== LOOP =====
+setInterval(async () => {
+
+  const reminders = await getReminders();
+  const settings = await getSettings();
+
+  const now = Date.now();
+  let hasTriggeredReminder = false;
+  const newlyDueReminders = [];
+
+  for (const reminder of reminders) {
+    if (!reminder.triggered && reminder.remindAt <= now) {
+      reminder.triggered = true;
+      hasTriggeredReminder = true;
+      newlyDueReminders.push(reminder);
+    }
+  }
+
+  if (hasTriggeredReminder) {
+    await saveReminders(reminders);
+    await syncPopupReminders();
+    await openReminderAlert();
+    await showDueNotification(newlyDueReminders, settings);
+
+    for (const reminder of newlyDueReminders) {
+      await returnReminderToInbox(reminder, settings);
+    }
+
+    await saveReminders(reminders);
+    await syncPopupReminders();
+    return;
+  }
+
+  await saveReminders(reminders);
+
+}, CHECK_INTERVAL);

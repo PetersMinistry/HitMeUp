@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pick Reminder Time</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --ink: #17212f;
+      --muted: #5c6f82;
+      --panel: #ffffff;
+      --line: #d8e1ea;
+      --page: #eef3f7;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --red: #991b1b;
+    }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+    }
+
+    .shell {
+      padding: 14px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .mascot {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(23, 33, 47, 0.16));
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.2;
+    }
+
+    .tagline {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .panel {
+      padding: 13px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(23, 33, 47, 0.08);
+    }
+
+    .subject {
+      margin-bottom: 12px;
+      color: var(--ink);
+      font-weight: bold;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    input {
+      width: 100%;
+      min-height: 36px;
+      padding: 7px 8px;
+      color: var(--ink);
+      border: 1px solid #b5c4d3;
+      border-radius: 6px;
+      font: inherit;
+      background: #ffffff;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+      outline: 2px solid rgba(37, 99, 235, 0.18);
+    }
+
+    .message {
+      min-height: 18px;
+      margin: 8px 0 10px;
+      color: var(--red);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      min-height: 36px;
+      padding: 8px 10px;
+      cursor: pointer;
+      border: 1px solid #b5c4d3;
+      border-radius: 6px;
+      color: var(--ink);
+      background: var(--panel);
+      font: inherit;
+      font-weight: 600;
+    }
+
+    button:hover {
+      border-color: var(--blue);
+    }
+
+    button.primary {
+      color: #ffffff;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    button.primary:hover {
+      border-color: var(--blue-dark);
+      background: var(--blue-dark);
+    }
+  </style>
+</head>
+<body>
+
+<main class="shell">
+  <header class="hero">
+    <img class="mascot" src="icons/icon-128.png" alt="">
+    <div>
+      <h2>Pick Reminder Time</h2>
+      <p class="tagline">Choose when this message should come back.</p>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="subject" id="subject"></div>
+
+    <label for="remind-at">Date and Time</label>
+    <input id="remind-at" type="datetime-local">
+    <div class="message" id="message"></div>
+
+    <div class="actions">
+      <button class="primary" id="save-button" type="button">Set Reminder</button>
+      <button id="cancel-button" type="button">Cancel</button>
+    </div>
+  </section>
+</main>
+
+<script src="custom_reminder.js"></script>
+
+</body>
+</html>

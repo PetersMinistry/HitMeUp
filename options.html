@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>HitMeUp Reminder Options</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --ink: #17212f;
+      --muted: #5c6f82;
+      --panel: #ffffff;
+      --line: #d8e1ea;
+      --page: #eef3f7;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --green-bg: #dcfce7;
+      --green: #166534;
+    }
+
+    body {
+      min-width: 520px;
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .shell {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .mascot {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(23, 33, 47, 0.16));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+
+    .tagline {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .panel {
+      margin-top: 14px;
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(23, 33, 47, 0.08);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 17px;
+    }
+
+    .setting {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .setting:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .setting-title {
+      font-weight: 700;
+    }
+
+    .setting-help {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+    }
+
+    input[type="number"] {
+      width: 88px;
+      min-height: 34px;
+      padding: 6px 8px;
+      color: var(--ink);
+      border: 1px solid #b5c4d3;
+      border-radius: 6px;
+      font: inherit;
+      text-align: right;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--blue);
+      outline: 2px solid rgba(37, 99, 235, 0.18);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    button {
+      min-height: 36px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border: 1px solid #b5c4d3;
+      border-radius: 6px;
+      color: var(--ink);
+      background: var(--panel);
+      font: inherit;
+      font-weight: 600;
+    }
+
+    .button-link {
+      display: inline-flex;
+      min-height: 36px;
+      align-items: center;
+      padding: 8px 12px;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid #b5c4d3;
+      border-radius: 6px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .button-link:hover {
+      border-color: var(--blue);
+    }
+
+    button.primary {
+      color: #ffffff;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    button.primary:hover {
+      border-color: var(--blue-dark);
+      background: var(--blue-dark);
+    }
+
+    .saved {
+      color: var(--green);
+      background: var(--green-bg);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<main class="shell">
+  <header class="hero">
+    <img class="mascot" src="icons/icon-128.png" alt="">
+    <div>
+      <h1>HitMeUp Reminder Options</h1>
+      <p class="tagline">Tune alerts, message handling, and reminder timing.</p>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>Due Reminder Behavior</h2>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Show system notification when due</span>
+        <span class="setting-help">Uses Thunderbird's notification API, which Windows can show with your notification tone.</span>
+      </span>
+      <input id="notify-on-due" type="checkbox">
+    </label>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Mark email unread when due</span>
+        <span class="setting-help">Makes the message stand out again when the reminder fires.</span>
+      </span>
+      <input id="mark-unread-on-due" type="checkbox">
+    </label>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Move email back to Inbox when due</span>
+        <span class="setting-help">Moves the email to the Inbox for the same account it came from.</span>
+      </span>
+      <input id="move-to-inbox-on-due" type="checkbox">
+    </label>
+  </section>
+
+  <section class="panel">
+    <h2>Timing Defaults</h2>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Test reminder</span>
+        <span class="setting-help">Seconds for the testing menu item.</span>
+      </span>
+      <input id="test-delay-seconds" type="number" min="1" max="300">
+    </label>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Hour reminder</span>
+        <span class="setting-help">Hours for the quick reminder menu item.</span>
+      </span>
+      <input id="default-reminder-hours" type="number" min="1" max="48">
+    </label>
+
+    <label class="setting">
+      <span>
+        <span class="setting-title">Day reminder</span>
+        <span class="setting-help">Days for the quick reminder menu item.</span>
+      </span>
+      <input id="default-reminder-days" type="number" min="1" max="30">
+    </label>
+  </section>
+
+  <div class="actions">
+    <button class="primary" id="save-button" type="button">Save Options</button>
+    <button id="reset-button" type="button">Reset Defaults</button>
+    <a class="button-link" href="about.html" target="_blank">About HitMeUp</a>
+    <span class="saved" id="saved-message" hidden>Saved</span>
+  </div>
+</main>
+
+<script src="options.js"></script>
+
+</body>
+</html>
