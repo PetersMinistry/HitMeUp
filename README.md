@@ -36,7 +36,7 @@ Access all reminders from the toolbar popup interface.
 Organized into:
 
 - **Due** reminders
-n- **Active** reminders
+- **Active** reminders
 
 ### Smart Badge Notifications
 
