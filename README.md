@@ -63,6 +63,12 @@ Supports Thunderbird / Windows notification behavior where available.
 
 ---
 
+## Screenshots
+
+Project screenshots are available in the `screenshots/` folder and showcase the active reminders view, due reminder workflow, and options panel.
+
+---
+
 ## Use Cases
 
 HitMeUp is ideal for:
@@ -134,8 +140,9 @@ Ongoing improvements may include:
 ## Repository Structure
 
 ```text
-dist/        Packaged releases
-icons/       Extension icons
+dist/          Packaged releases
+icons/         Extension icons
+screenshots/   Interface previews
 ```
 
 ---
