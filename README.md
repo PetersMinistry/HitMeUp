@@ -91,8 +91,14 @@ HitMeUp is ideal for:
 Install from the included release build:
 
 ```text
-dist/HitMeUp-Reminder.xpi
+dist/HitMeUp-Reminder-1.0.0.xpi
 ```
+
+---
+
+## Current Version
+
+**1.0.0** — Initial public release
 
 ---
 
@@ -130,7 +136,6 @@ Ongoing improvements may include:
 ```text
 dist/        Packaged releases
 icons/       Extension icons
-docs/        Supporting documentation
 ```
 
 ---
