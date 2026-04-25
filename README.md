@@ -1,51 +1,154 @@
 # HitMeUp Reminder
 
-HitMeUp Reminder adds simple, reliable email reminders directly inside Thunderbird so follow-ups do not get lost.
+A productivity-focused reminder extension for Mozilla Thunderbird that helps you follow up on important emails at the right time.
+
+HitMeUp lets you set reminders directly from your inbox so messages don’t get forgotten, buried, or lost in the daily flow of communication.
+
+---
+
+## Overview
+
+Email often becomes a task manager by accident.
+
+HitMeUp was built to solve a common problem: remembering to respond, revisit, or act on an email later.
+
+With quick reminder tools, visual badges, due alerts, and snooze actions, HitMeUp helps turn Thunderbird into a more reliable follow-up workflow.
+
+---
 
 ## Features
 
-- Set reminders from the message list right-click menu.
-- Use quick presets or pick a custom date and time.
-- View reminders from the toolbar dropdown.
-- Keep Due and Active reminders separated.
-- Search and filter active reminders.
-- See exact date/time details on active reminders.
-- Open, edit, or cancel active reminders from the active list.
-- Snooze due reminders for 10, 30, or 60 minutes, or choose a custom time.
-- Open the related email from a due reminder.
-- Dismiss one due reminder or dismiss all due reminders.
-- Tag tracked emails with `HitMeUp Reminder`.
-- Prevent duplicate reminders on the same email by updating the existing reminder.
-- Support multiple accounts when moving messages back to Inbox.
+### Quick Reminder Creation
 
-## Options
+Set reminders directly from any email using the right-click context menu.
 
-- Show a system notification when a reminder becomes due.
-- Mark the email unread when a reminder becomes due.
-- Move the email back to the Inbox for the same account when due.
-- Configure the test reminder duration.
-- Configure the quick hour reminder duration.
-- Configure the quick day reminder duration.
+Preset options include:
 
-## Permissions
+- 10 seconds (testing)
+- 1 hour
+- 1 day
+- Custom date and time
 
-- `accountsRead`: Finds the correct account and Inbox for reminders that move messages back to Inbox.
-- `messagesRead`: Reads selected/displayed message metadata such as subject, folder, account, and Message-ID.
-- `messagesMove`: Moves due messages back to their account Inbox when enabled.
-- `messagesUpdate`: Marks messages unread and adds/removes reminder tags on messages.
-- `messagesTags`: Creates and updates the `HitMeUp Reminder` mail tag.
-- `notifications`: Shows a Thunderbird/system notification when reminders become due.
-- `storage`: Stores reminders and settings locally.
-- `menus`: Adds reminder actions to the message list context menu.
+### Toolbar Reminder Center
+
+Access all reminders from the toolbar popup interface.
+
+Organized into:
+
+- **Due** reminders
+n- **Active** reminders
+
+### Smart Badge Notifications
+
+Toolbar badge displays:
+
+- Active reminder count
+- Due reminder alerts
+- Visual attention indicator when reminders are overdue
+
+### Due Reminder Actions
+
+When reminders become due, quickly choose:
+
+- Open Email
+- Snooze 10 Minutes
+- Snooze 1 Hour
+- Dismiss
+
+### Desktop Notifications
+
+Receive system notifications when reminders are due.
+
+Supports Thunderbird / Windows notification behavior where available.
+
+---
+
+## Use Cases
+
+HitMeUp is ideal for:
+
+- Follow-up emails
+- Waiting on replies
+- Task reminders from incoming messages
+- Time-sensitive responses
+- Client communication tracking
+- Personal inbox organization
+
+---
+
+## Installation
+
+### Temporary Install (Developer Mode)
+
+1. Open Mozilla Thunderbird
+2. Go to Add-ons and Themes
+3. Select Extensions
+4. Choose **Install Add-on From File**
+5. Select the provided `.xpi` package
+
+### Packaged Release
+
+Install from the included release build:
+
+```text
+dist/HitMeUp-Reminder.xpi
+```
+
+---
 
 ## Privacy
 
-HitMeUp Reminder runs locally inside Thunderbird.
+HitMeUp is designed with privacy in mind.
 
-- No data is sent to external servers.
-- No tracking or analytics are used.
-- Reminder data is stored locally using Thunderbird extension storage.
+- No cloud syncing
+- No analytics
+- No external tracking
+- No data selling
+- Reminder data remains local to the Thunderbird environment
 
-## Notes
+See `PRIVACY.md` for details.
 
-Some optional settings modify message state, including unread status, folder location, and message tags. These behaviors are controlled by the user in the Options page.
+---
+
+## Project Status
+
+Current version is stable and functional with core reminder workflows complete.
+
+Ongoing improvements may include:
+
+- recurring reminders
+- better sorting/filtering
+- reminder search
+- theme enhancements
+- export/import options
+- cross-device workflows
+
+---
+
+## Repository Structure
+
+```text
+dist/        Packaged releases
+icons/       Extension icons
+docs/        Supporting documentation
+```
+
+---
+
+## Why It Was Built
+
+Many email users rely on memory or inbox clutter to remember follow-ups.
+
+HitMeUp was created to provide a simple reminder layer inside Thunderbird without unnecessary complexity.
+
+---
+
+## License
+
+Private repository at this time. Licensing to be determined for future public release.
+
+---
+
+## Author
+
+Created by Peter Moreno
