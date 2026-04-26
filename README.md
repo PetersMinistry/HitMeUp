@@ -167,7 +167,7 @@ HitMeUp was created to provide a simple reminder layer inside Thunderbird withou
 
 ## License
 
-Private repository at this time. Licensing to be determined for future public release.
+Licensed under the MIT License.
 
 ---
 
