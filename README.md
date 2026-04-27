@@ -142,8 +142,6 @@ Ongoing improvements may include:
 - better sorting/filtering
 - reminder search
 - theme enhancements
-- export/import options
-- cross-device workflows
 
 ---
 
