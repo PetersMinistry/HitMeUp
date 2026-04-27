@@ -44,7 +44,7 @@ Toolbar badge displays:
 
 - Active reminder count
 - Due reminder alerts
-- Visual attention indicator when reminders are overdue
+- Color-coded status (red for due, blue for active)
 
 ### Due Reminder Actions
 
@@ -52,7 +52,9 @@ When reminders become due, quickly choose:
 
 - Open Email
 - Snooze 10 Minutes
+- Snooze 30 Minutes
 - Snooze 1 Hour
+- Snooze Custom Date and Time
 - Dismiss
 
 ### Desktop Notifications
@@ -140,7 +142,6 @@ Ongoing improvements may include:
 
 - recurring reminders
 - better sorting/filtering
-- reminder search
 - theme enhancements
 
 ---
