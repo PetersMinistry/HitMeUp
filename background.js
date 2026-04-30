@@ -102,43 +102,61 @@ function getMessageTagKeys(message) {
     .filter(Boolean);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function rememberResolvedMessage(reminder, message) {
+  if (!reminder || !message) return;
+
+  reminder.messageId = message.id || reminder.messageId;
+  reminder.folderId = message.folder && message.folder.id;
+  reminder.accountId = message.folder && message.folder.accountId;
+  reminder.headerMessageId = reminder.headerMessageId || message.headerMessageId;
+}
+
+async function queryReminderMessages(reminder) {
+  if (!reminder || !reminder.headerMessageId || !browser.messages.query) return [];
+
+  try {
+    const result = await browser.messages.query({
+      headerMessageId: reminder.headerMessageId,
+      messagesPerPage: 25
+    });
+    const messages = result && result.messages ? result.messages : [];
+
+    return messages.filter((item) => {
+      return !reminder.accountId || (item.folder && item.folder.accountId === reminder.accountId);
+    });
+  } catch (error) {
+    console.error("Unable to query HitMeUp Reminder messages by header id", error);
+    return [];
+  }
+}
+
 async function resolveReminderMessage(reminder) {
   if (!reminder) return null;
 
   if (reminder.messageId) {
     try {
-      return await browser.messages.get(reminder.messageId);
+      const message = await browser.messages.get(reminder.messageId);
+      rememberResolvedMessage(reminder, message);
+      return message;
     } catch (error) {
       console.error("Unable to get HitMeUp Reminder message by session id", error);
     }
   }
 
-  if (!reminder.headerMessageId || !browser.messages.query) return null;
+  const messages = await queryReminderMessages(reminder);
+  const message = messages[0] || null;
 
-  try {
-    const query = {
-      headerMessageId: reminder.headerMessageId,
-      messagesPerPage: 10
-    };
-
-    const result = await browser.messages.query(query);
-    const messages = result && result.messages ? result.messages : [];
-    const message = messages.find((item) => {
-      return !reminder.accountId || (item.folder && item.folder.accountId === reminder.accountId);
-    }) || messages[0] || null;
-
-    if (message) {
-      reminder.messageId = message.id;
-      reminder.folderId = message.folder && message.folder.id;
-      reminder.accountId = message.folder && message.folder.accountId;
-      reminder.headerMessageId = reminder.headerMessageId || message.headerMessageId;
-    }
-
-    return message;
-  } catch (error) {
-    console.error("Unable to resolve HitMeUp Reminder message by header id", error);
-    return null;
+  if (message) {
+    rememberResolvedMessage(reminder, message);
   }
+
+  return message;
 }
 
 async function updateReminderTag(reminder, shouldTag) {
@@ -150,19 +168,48 @@ async function updateReminderTag(reminder, shouldTag) {
   }
 
   try {
-    const message = await resolveReminderMessage(reminder);
-    if (!message) return;
+    const candidates = [];
 
-    const tags = getMessageTagKeys(message);
-    const hasTag = tags.includes(REMINDER_TAG_KEY);
-
-    if (shouldTag && !hasTag) {
-      await browser.messages.update(message.id, {
-        tags: [...tags, REMINDER_TAG_KEY]
-      });
+    if (reminder.messageId) {
+      try {
+        candidates.push(await browser.messages.get(reminder.messageId));
+      } catch (error) {
+        console.error("Unable to get HitMeUp Reminder message by session id", error);
+      }
     }
 
-    if (!shouldTag && hasTag) {
+    const queriedMessages = await queryReminderMessages(reminder);
+    candidates.push(...queriedMessages);
+
+    const uniqueMessages = candidates.filter((message, index, messages) => {
+      return message && messages.findIndex((item) => item && String(item.id) === String(message.id)) === index;
+    });
+
+    const taggedMessage = uniqueMessages.find((message) => getMessageTagKeys(message).includes(REMINDER_TAG_KEY));
+    const targetMessage = shouldTag
+      ? (taggedMessage || queriedMessages[0] || uniqueMessages[0] || null)
+      : (taggedMessage || uniqueMessages[0] || null);
+    if (!targetMessage) return;
+
+    rememberResolvedMessage(reminder, targetMessage);
+
+    if (shouldTag) {
+      const tags = getMessageTagKeys(targetMessage);
+      const hasTag = tags.includes(REMINDER_TAG_KEY);
+
+      if (!hasTag) {
+        await browser.messages.update(targetMessage.id, {
+          tags: [...tags, REMINDER_TAG_KEY]
+        });
+      }
+      return;
+    }
+
+    for (const message of uniqueMessages) {
+      const tags = getMessageTagKeys(message);
+      if (!tags.includes(REMINDER_TAG_KEY)) continue;
+
+      rememberResolvedMessage(reminder, message);
       await browser.messages.update(message.id, {
         tags: tags.filter((tag) => tag !== REMINDER_TAG_KEY)
       });
@@ -475,17 +522,59 @@ async function findInboxFolder(accountId) {
 async function findMessageAfterMove(reminder, inboxFolder) {
   if (!reminder.headerMessageId || !browser.messages.query) return null;
 
-  const query = {
-    headerMessageId: reminder.headerMessageId,
-    messagesPerPage: 10
-  };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt) {
+      await sleep(250);
+    }
 
-  if (inboxFolder && inboxFolder.id) {
-    query.folderId = inboxFolder.id;
+    if (inboxFolder && inboxFolder.id) {
+      try {
+        const result = await browser.messages.query({
+          headerMessageId: reminder.headerMessageId,
+          folderId: inboxFolder.id,
+          messagesPerPage: 10
+        });
+        if (result && result.messages && result.messages.length) {
+          return result.messages[0];
+        }
+      } catch (error) {
+        console.error("Unable to find moved HitMeUp Reminder message in Inbox", error);
+      }
+    }
+
+    try {
+      const query = {
+        headerMessageId: reminder.headerMessageId,
+        messagesPerPage: 10
+      };
+
+      const result = await browser.messages.query(query);
+      if (result && result.messages && result.messages.length) {
+        const messages = result.messages.filter((item) => {
+          return !reminder.accountId || (item.folder && item.folder.accountId === reminder.accountId);
+        });
+        const inboxMessage = inboxFolder && inboxFolder.id
+          ? messages.find((item) => item.folder && item.folder.id === inboxFolder.id)
+          : null;
+        return inboxMessage || messages[0] || result.messages[0];
+      }
+    } catch (error) {
+      console.error("Unable to find moved HitMeUp Reminder message", error);
+    }
   }
 
-  const result = await browser.messages.query(query);
-  return result && result.messages && result.messages.length ? result.messages[0] : null;
+  return null;
+}
+
+function copyReminderMessageState(target, source) {
+  if (!target || !source) return;
+
+  target.messageId = source.messageId || target.messageId;
+  target.headerMessageId = source.headerMessageId || target.headerMessageId;
+  target.subject = source.subject || target.subject;
+  target.folderId = source.folderId || target.folderId;
+  target.accountId = source.accountId || target.accountId;
+  target.accountName = source.accountName || target.accountName;
 }
 
 async function returnReminderToInbox(reminder, settings) {
@@ -793,7 +882,26 @@ setInterval(async () => {
       await returnReminderToInbox(reminder, settings);
     }
 
-    await saveReminders(reminders);
+    const latestReminders = await getReminders();
+
+    for (const processedReminder of newlyDueReminders) {
+      const currentReminder = latestReminders.find((item) => {
+        return String(item.id) === String(processedReminder.id);
+      });
+
+      if (!currentReminder) {
+        await updateReminderTag(processedReminder, false);
+        continue;
+      }
+
+      copyReminderMessageState(currentReminder, processedReminder);
+
+      if (currentReminder.triggered) {
+        currentReminder.returnedToInbox = processedReminder.returnedToInbox;
+      }
+    }
+
+    await saveReminders(latestReminders);
     await syncPopupReminders();
     return;
   }

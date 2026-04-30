@@ -1,6 +1,23 @@
 # Changelog
 
-## 1.0.0
+## [1.0.1] - 2026-04-30
+
+Stabilization patch for the submitted Thunderbird review build.
+
+### Fixed
+
+- Made `HitMeUp Reminder` tag cleanup more resilient when a due reminder moves an email back to the Inbox before the user dismisses it.
+- Prevented the due-reminder processing loop from overwriting a user dismiss/snooze action that happens while Inbox move and tag updates are still finishing.
+- Added short retries when resolving a message after an Inbox move so Thunderbird has time to expose the moved message id.
+
+### Validation Notes
+
+- Manifest JSON parses successfully.
+- Rebuilt `dist/HitMeUp-Reminder-1.0.1.xpi` and confirmed its packaged manifest contains version `1.0.1`.
+- Confirmed the XPI uses forward-slash archive paths.
+- Thunderbird smoke test passed for: set reminder, due move to Inbox, dismiss due reminder, confirm tag removal.
+
+## [1.0.0] - 2026-04-25
 
 Initial public release.
 

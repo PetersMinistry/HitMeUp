@@ -109,14 +109,14 @@ HitMeUp is ideal for:
 Install from the included release build:
 
 ```text
-dist/HitMeUp-Reminder-1.0.0.xpi
+dist/HitMeUp-Reminder-1.0.1.xpi
 ```
 
 ---
 
 ## Current Version
 
-**1.0.0** — Initial public release
+**1.0.1** — Stabilization patch for reminder tag cleanup after due reminders return messages to the Inbox
 
 ---
 
