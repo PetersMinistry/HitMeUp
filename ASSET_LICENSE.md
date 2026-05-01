@@ -1,6 +1,6 @@
 # Asset and Branding License
 
-The source code for HitMeUp Reminder is licensed separately under the MIT License in `LICENSE`.
+The source code for HitMeUp Reminder is licensed separately under the MIT License in [LICENSE.md](LICENSE.md).
 
 This file covers the project name, logo, icons, screenshots, listing artwork, and other branding or visual identity assets included in this repository or packaged add-on.
 
