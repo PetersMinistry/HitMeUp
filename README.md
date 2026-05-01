@@ -72,7 +72,9 @@ screenshots/   Interface previews
 
 ## License
 
-Licensed under the MIT License.
+Code is licensed under the MIT License.
+
+The HitMeUp Reminder name, logo, icons, screenshots, and other branding assets are not covered by the MIT License. See [ASSET_LICENSE.md](ASSET_LICENSE.md).
 
 ## Author
 
