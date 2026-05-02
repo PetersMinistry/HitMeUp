@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "HitMeUp Reminder",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Peter Moreno",
   "developer": {
     "name": "Peter Moreno"
@@ -19,6 +19,7 @@
     "messagesMove",
     "messagesUpdate",
     "messagesTags",
+    "alarms",
     "notifications",
     "storage",
     "menus"

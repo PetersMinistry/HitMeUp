@@ -1,4 +1,5 @@
 const CHECK_INTERVAL = 5000;
+const REMINDER_CHECK_ALARM_NAME = "hitmeup-reminder-check";
 const CUSTOM_POPUP_WIDTH = 420;
 const CUSTOM_POPUP_HEIGHT = 420;
 const CUSTOM_POPUP_URL = browser.runtime.getURL("custom_reminder.html");
@@ -18,6 +19,8 @@ const DEFAULT_SETTINGS = {
 console.log("HitMeUp Reminder background loaded");
 
 const accountNameCache = new Map();
+let isProcessingDueReminders = false;
+let scheduledReminderAlarmTime = 0;
 
 function normalizeSettings(settings) {
   return {
@@ -244,6 +247,46 @@ function formatBadgeCount(count) {
   return count > 9 ? "9+" : String(count);
 }
 
+function getNextPendingReminder(reminders) {
+  return reminders
+    .filter((reminder) => {
+      return reminder && !reminder.triggered && Number.isFinite(Number(reminder.remindAt));
+    })
+    .sort((a, b) => Number(a.remindAt) - Number(b.remindAt))[0] || null;
+}
+
+async function scheduleReminderAlarm(reminders) {
+  if (!browser.alarms || !browser.alarms.create) return;
+
+  try {
+    const nextReminder = getNextPendingReminder(reminders);
+    if (!nextReminder) {
+      if (scheduledReminderAlarmTime && browser.alarms.clear) {
+        await browser.alarms.clear(REMINDER_CHECK_ALARM_NAME);
+      }
+      scheduledReminderAlarmTime = 0;
+      return;
+    }
+
+    const nextAlarmTime = Math.max(Number(nextReminder.remindAt), Date.now() + 1000);
+    if (scheduledReminderAlarmTime && Math.abs(scheduledReminderAlarmTime - nextAlarmTime) < 1000) {
+      return;
+    }
+
+    if (browser.alarms.clear) {
+      await browser.alarms.clear(REMINDER_CHECK_ALARM_NAME);
+    }
+
+    await browser.alarms.create(REMINDER_CHECK_ALARM_NAME, {
+      when: nextAlarmTime
+    });
+    scheduledReminderAlarmTime = nextAlarmTime;
+  } catch (error) {
+    scheduledReminderAlarmTime = 0;
+    console.error("Unable to schedule HitMeUp Reminder background alarm", error);
+  }
+}
+
 async function syncReminderMenus() {
   if (!browser.menus || !browser.menus.update) return;
 
@@ -391,9 +434,15 @@ async function getReminders() {
   return stored.reminders || [];
 }
 
-async function saveReminders(reminders) {
+async function saveReminders(reminders, options = {}) {
+  const { scheduleAlarm = true } = options;
+
   await browser.storage.local.set({ reminders });
   await updateToolbar(reminders);
+
+  if (scheduleAlarm) {
+    await scheduleReminderAlarm(reminders);
+  }
 }
 
 async function getPopupReminders() {
@@ -661,6 +710,8 @@ async function initializeReminderUi() {
   }
   await updateToolbar(reminders);
   await syncPopupReminders();
+  await scheduleReminderAlarm(reminders);
+  await processDueReminders();
 }
 
 initializeReminderUi().catch((error) => {
@@ -855,25 +906,32 @@ browser.runtime.onMessage.addListener(async (message) => {
 });
 
 // ===== LOOP =====
-setInterval(async () => {
+async function processDueReminders() {
+  if (isProcessingDueReminders) return;
+  isProcessingDueReminders = true;
 
-  const reminders = await getReminders();
-  const settings = await getSettings();
+  try {
+    const reminders = await getReminders();
+    const settings = await getSettings();
 
-  const now = Date.now();
-  let hasTriggeredReminder = false;
-  const newlyDueReminders = [];
+    const now = Date.now();
+    let hasTriggeredReminder = false;
+    const newlyDueReminders = [];
 
-  for (const reminder of reminders) {
-    if (!reminder.triggered && reminder.remindAt <= now) {
-      reminder.triggered = true;
-      hasTriggeredReminder = true;
-      newlyDueReminders.push(reminder);
+    for (const reminder of reminders) {
+      if (!reminder.triggered && reminder.remindAt <= now) {
+        reminder.triggered = true;
+        hasTriggeredReminder = true;
+        newlyDueReminders.push(reminder);
+      }
     }
-  }
 
-  if (hasTriggeredReminder) {
-    await saveReminders(reminders);
+    if (!hasTriggeredReminder) {
+      await scheduleReminderAlarm(reminders);
+      return;
+    }
+
+    await saveReminders(reminders, { scheduleAlarm: false });
     await syncPopupReminders();
     await openReminderAlert();
     await showDueNotification(newlyDueReminders, settings);
@@ -904,8 +962,26 @@ setInterval(async () => {
     await saveReminders(latestReminders);
     await syncPopupReminders();
     return;
+  } finally {
+    isProcessingDueReminders = false;
   }
+}
 
-  await saveReminders(reminders);
+if (browser.alarms && browser.alarms.onAlarm) {
+  browser.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm && alarm.name !== REMINDER_CHECK_ALARM_NAME) return;
 
+    scheduledReminderAlarmTime = 0;
+    try {
+      await processDueReminders();
+    } catch (error) {
+      console.error("Unable to process HitMeUp Reminder alarm", error);
+    }
+  });
+}
+
+setInterval(() => {
+  processDueReminders().catch((error) => {
+    console.error("Unable to process HitMeUp Reminder due loop", error);
+  });
 }, CHECK_INTERVAL);

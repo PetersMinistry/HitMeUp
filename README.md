@@ -43,12 +43,12 @@ Use the message-list right-click menu to set a reminder, then manage due and act
 ### Current Package
 
 ```text
-dist/HitMeUp-Reminder-1.0.1.xpi
+dist/HitMeUp-Reminder-1.0.2.xpi
 ```
 
 ## Current Version
 
-**1.0.1** - Stabilization patch for reminder tag cleanup after due reminders return messages to the Inbox.
+**1.0.2** - Stabilization patch for due reminders while Thunderbird is minimized or sitting in the tray.
 
 ## Privacy
 

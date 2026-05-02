@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.2] - 2026-05-02
+
+Stabilization patch for due-reminder reliability while Thunderbird is minimized or sitting in the tray.
+
+### Fixed
+
+- Added a Thunderbird background alarm for the next pending reminder so due actions can wake reliably when the normal interval loop is throttled.
+- Kept the existing interval loop as a fast foreground fallback while preventing overlapping due-reminder processing.
+
+### Validation Notes
+
+- Manifest JSON parses successfully.
+- Background script syntax check passes.
+
 ## [1.0.1] - 2026-04-30
 
 Stabilization patch for the submitted Thunderbird review build.
