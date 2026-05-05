@@ -42,9 +42,7 @@ Use the message-list right-click menu to set a reminder, then manage due and act
 
 ### Current Package
 
-```text
-dist/HitMeUp-Reminder-1.0.2.xpi
-```
+Download the current `.xpi` from [GitHub Releases](https://github.com/PetersMinistry/HitMeUp/releases/latest).
 
 ## Current Version
 
@@ -65,7 +63,6 @@ Reminder data and settings are stored locally in Thunderbird extension storage. 
 ## Repository Structure
 
 ```text
-dist/          Packaged releases
 icons/         Extension icons
 screenshots/   Interface previews
 ```
