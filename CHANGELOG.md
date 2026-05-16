@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.3] - 2026-05-16
+
+Stabilization patch for due reminders that become due while Thunderbird is minimized or sitting in the tray.
+
+### Fixed
+
+- Added a retry path for already-due reminders whose Inbox return did not finish on the first attempt.
+- Kept due notifications one-time while allowing unfinished Inbox moves to retry from the interval loop or background alarm.
+- Preserved retry state until the Inbox return succeeds, then cleared retry metadata after completion.
+
+### Validation Notes
+
+- Manifest JSON parses successfully.
+- Background script syntax check passes.
+- Added a dependency-free due-reminder retry test covering minimized-style move failure and recovery.
+
 ## [1.0.2] - 2026-05-02
 
 Stabilization patch for due-reminder reliability while Thunderbird is minimized or sitting in the tray.

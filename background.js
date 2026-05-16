@@ -1,4 +1,6 @@
 const CHECK_INTERVAL = 5000;
+const INBOX_RETURN_RETRY_INTERVAL = 30000;
+const MAX_INBOX_RETURN_RETRY_INTERVAL = 5 * 60 * 1000;
 const REMINDER_CHECK_ALARM_NAME = "hitmeup-reminder-check";
 const CUSTOM_POPUP_WIDTH = 420;
 const CUSTOM_POPUP_HEIGHT = 420;
@@ -16,6 +18,7 @@ const DEFAULT_SETTINGS = {
   defaultReminderDays: 1
 };
 
+// John 14:6 - The way, the truth, and the life.
 console.log("HitMeUp Reminder background loaded");
 
 const accountNameCache = new Map();
@@ -255,12 +258,54 @@ function getNextPendingReminder(reminders) {
     .sort((a, b) => Number(a.remindAt) - Number(b.remindAt))[0] || null;
 }
 
+function isInboxReturnPending(reminder) {
+  return Boolean(reminder && reminder.triggered && !reminder.returnedToInbox);
+}
+
+function shouldAttemptInboxReturn(reminder, now = Date.now()) {
+  if (!isInboxReturnPending(reminder)) return false;
+
+  const nextAttemptAt = Number(reminder.nextInboxReturnAttemptAt);
+  return !Number.isFinite(nextAttemptAt) || nextAttemptAt <= now;
+}
+
+function getNextInboxReturnAttemptTime(reminders) {
+  const now = Date.now();
+  const nextAttemptTimes = reminders
+    .filter(isInboxReturnPending)
+    .map((reminder) => {
+      const nextAttemptAt = Number(reminder.nextInboxReturnAttemptAt);
+      return Number.isFinite(nextAttemptAt) ? nextAttemptAt : now + 1000;
+    })
+    .sort((a, b) => a - b);
+
+  return nextAttemptTimes[0] || 0;
+}
+
+function clearInboxReturnRetry(reminder) {
+  if (!reminder) return;
+
+  delete reminder.inboxReturnAttemptCount;
+  delete reminder.lastInboxReturnAttemptAt;
+  delete reminder.nextInboxReturnAttemptAt;
+}
+
+function scheduleInboxReturnRetry(reminder) {
+  if (!reminder) return;
+
+  const retryCount = Math.max(Number(reminder.inboxReturnAttemptCount) || 1, 1);
+  const retryDelay = Math.min(INBOX_RETURN_RETRY_INTERVAL * retryCount, MAX_INBOX_RETURN_RETRY_INTERVAL);
+  reminder.nextInboxReturnAttemptAt = Date.now() + retryDelay;
+}
+
 async function scheduleReminderAlarm(reminders) {
   if (!browser.alarms || !browser.alarms.create) return;
 
   try {
     const nextReminder = getNextPendingReminder(reminders);
-    if (!nextReminder) {
+    const nextInboxReturnAttemptTime = getNextInboxReturnAttemptTime(reminders);
+
+    if (!nextReminder && !nextInboxReturnAttemptTime) {
       if (scheduledReminderAlarmTime && browser.alarms.clear) {
         await browser.alarms.clear(REMINDER_CHECK_ALARM_NAME);
       }
@@ -268,7 +313,12 @@ async function scheduleReminderAlarm(reminders) {
       return;
     }
 
-    const nextAlarmTime = Math.max(Number(nextReminder.remindAt), Date.now() + 1000);
+    const nextReminderTime = nextReminder ? Number(nextReminder.remindAt) : Number.POSITIVE_INFINITY;
+    const nextAlarmTime = Math.max(
+      Math.min(nextReminderTime, nextInboxReturnAttemptTime || Number.POSITIVE_INFINITY),
+      Date.now() + 1000
+    );
+
     if (scheduledReminderAlarmTime && Math.abs(scheduledReminderAlarmTime - nextAlarmTime) < 1000) {
       return;
     }
@@ -397,6 +447,7 @@ async function addReminder(reminder) {
       triggered: false,
       returnedToInbox: false
     });
+    clearInboxReturnRetry(existingReminder);
   } else {
     reminders.push(reminder);
   }
@@ -627,35 +678,43 @@ function copyReminderMessageState(target, source) {
 }
 
 async function returnReminderToInbox(reminder, settings) {
-  if (reminder.returnedToInbox || !reminder.messageId) return;
+  if (!reminder || reminder.returnedToInbox) return true;
 
-  if (settings.markUnreadOnDue) {
-    try {
-      await browser.messages.update(reminder.messageId, { read: false });
-    } catch (error) {
-      console.error("Unable to mark HitMeUp Reminder message unread", error);
-    }
-  }
-
-  if (!settings.moveToInboxOnDue) {
-    reminder.returnedToInbox = true;
-    return;
-  }
+  reminder.inboxReturnAttemptCount = (Number(reminder.inboxReturnAttemptCount) || 0) + 1;
+  reminder.lastInboxReturnAttemptAt = Date.now();
+  delete reminder.nextInboxReturnAttemptAt;
 
   try {
-    const message = await browser.messages.get(reminder.messageId);
-    reminder.headerMessageId = reminder.headerMessageId || message.headerMessageId;
+    const message = await resolveReminderMessage(reminder);
+    if (!message || !message.id) {
+      throw new Error("Unable to resolve HitMeUp Reminder message for Inbox return");
+    }
+
+    if (settings.markUnreadOnDue) {
+      try {
+        await browser.messages.update(message.id, { read: false });
+      } catch (error) {
+        console.error("Unable to mark HitMeUp Reminder message unread", error);
+      }
+    }
+
+    if (!settings.moveToInboxOnDue) {
+      reminder.returnedToInbox = true;
+      clearInboxReturnRetry(reminder);
+      return true;
+    }
+
+    rememberResolvedMessage(reminder, message);
     reminder.subject = reminder.subject || message.subject || "(No subject)";
-    reminder.folderId = reminder.folderId || (message.folder && message.folder.id);
-    reminder.accountId = reminder.accountId || (message.folder && message.folder.accountId);
-    reminder.accountName = reminder.accountName || (await getAccountName(reminder.accountId));
 
     const accountId = reminder.accountId || (message.folder && message.folder.accountId);
+    reminder.accountName = reminder.accountName || (await getAccountName(accountId));
     const inboxFolder = await findInboxFolder(accountId);
 
     if (!inboxFolder) {
       reminder.returnedToInbox = true;
-      return;
+      clearInboxReturnRetry(reminder);
+      return true;
     }
 
     const currentFolderId = message.folder && message.folder.id;
@@ -675,14 +734,61 @@ async function returnReminderToInbox(reminder, settings) {
           await browser.messages.update(movedMessage.id, { read: false });
         }
         await updateReminderTag(reminder, true);
+      } else {
+        reminder.folderId = inboxFolderId || reminder.folderId;
+        reminder.accountId = accountId || reminder.accountId;
+        reminder.accountName = reminder.accountName || (await getAccountName(reminder.accountId));
       }
     } else {
       await updateReminderTag(reminder, true);
     }
 
     reminder.returnedToInbox = true;
+    clearInboxReturnRetry(reminder);
+    return true;
   } catch (error) {
+    scheduleInboxReturnRetry(reminder);
     console.error("Unable to move HitMeUp Reminder message to Inbox", error);
+    return false;
+  }
+}
+
+async function processInboxReturnReminders(reminders, settings, now) {
+  const dueInboxReturnReminders = reminders.filter((reminder) => {
+    return shouldAttemptInboxReturn(reminder, now);
+  });
+
+  for (const reminder of dueInboxReturnReminders) {
+    await returnReminderToInbox(reminder, settings);
+  }
+
+  return dueInboxReturnReminders;
+}
+
+async function mergeProcessedInboxReturnReminders(latestReminders, processedReminders) {
+  for (const processedReminder of processedReminders) {
+    const currentReminder = latestReminders.find((item) => {
+      return String(item.id) === String(processedReminder.id);
+    });
+
+    if (!currentReminder) {
+      await updateReminderTag(processedReminder, false);
+      continue;
+    }
+
+    copyReminderMessageState(currentReminder, processedReminder);
+
+    if (currentReminder.triggered) {
+      currentReminder.returnedToInbox = processedReminder.returnedToInbox;
+
+      if (processedReminder.returnedToInbox) {
+        clearInboxReturnRetry(currentReminder);
+      } else {
+        currentReminder.inboxReturnAttemptCount = processedReminder.inboxReturnAttemptCount;
+        currentReminder.lastInboxReturnAttemptAt = processedReminder.lastInboxReturnAttemptAt;
+        currentReminder.nextInboxReturnAttemptAt = processedReminder.nextInboxReturnAttemptAt;
+      }
+    }
   }
 }
 
@@ -890,6 +996,7 @@ browser.runtime.onMessage.addListener(async (message) => {
     reminder.remindAt = Date.now() + delayMs;
     reminder.triggered = false;
     reminder.returnedToInbox = false;
+    clearInboxReturnRetry(reminder);
     await updateReminderTag(reminder, true);
   }
 
@@ -915,49 +1022,33 @@ async function processDueReminders() {
     const settings = await getSettings();
 
     const now = Date.now();
-    let hasTriggeredReminder = false;
     const newlyDueReminders = [];
 
     for (const reminder of reminders) {
       if (!reminder.triggered && reminder.remindAt <= now) {
         reminder.triggered = true;
-        hasTriggeredReminder = true;
+        reminder.returnedToInbox = false;
+        clearInboxReturnRetry(reminder);
         newlyDueReminders.push(reminder);
       }
     }
 
-    if (!hasTriggeredReminder) {
+    if (newlyDueReminders.length) {
+      await saveReminders(reminders, { scheduleAlarm: false });
+      await syncPopupReminders();
+      await openReminderAlert();
+      await showDueNotification(newlyDueReminders, settings);
+    }
+
+    const processedInboxReturnReminders = await processInboxReturnReminders(reminders, settings, now);
+
+    if (!newlyDueReminders.length && !processedInboxReturnReminders.length) {
       await scheduleReminderAlarm(reminders);
       return;
     }
 
-    await saveReminders(reminders, { scheduleAlarm: false });
-    await syncPopupReminders();
-    await openReminderAlert();
-    await showDueNotification(newlyDueReminders, settings);
-
-    for (const reminder of newlyDueReminders) {
-      await returnReminderToInbox(reminder, settings);
-    }
-
     const latestReminders = await getReminders();
-
-    for (const processedReminder of newlyDueReminders) {
-      const currentReminder = latestReminders.find((item) => {
-        return String(item.id) === String(processedReminder.id);
-      });
-
-      if (!currentReminder) {
-        await updateReminderTag(processedReminder, false);
-        continue;
-      }
-
-      copyReminderMessageState(currentReminder, processedReminder);
-
-      if (currentReminder.triggered) {
-        currentReminder.returnedToInbox = processedReminder.returnedToInbox;
-      }
-    }
+    await mergeProcessedInboxReturnReminders(latestReminders, processedInboxReturnReminders);
 
     await saveReminders(latestReminders);
     await syncPopupReminders();

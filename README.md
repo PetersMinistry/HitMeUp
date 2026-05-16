@@ -46,7 +46,7 @@ Download the current `.xpi` from [GitHub Releases](https://github.com/PetersMini
 
 ## Current Version
 
-**1.0.2** - Stabilization patch for due reminders while Thunderbird is minimized or sitting in the tray.
+**1.0.3** - Retry stabilization for due reminders that become due while Thunderbird is minimized or sitting in the tray.
 
 ## Privacy
 
