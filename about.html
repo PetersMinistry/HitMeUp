@@ -91,6 +91,17 @@
       font-family: Consolas, "Courier New", monospace;
     }
 
+    a {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    a:hover,
+    a:focus {
+      text-decoration: underline;
+    }
+
     .meta {
       display: flex;
       flex-wrap: wrap;
@@ -117,7 +128,7 @@
       <h1>HitMeUp Reminder</h1>
       <p class="tagline">Set reminders on emails so follow-ups do not get lost.</p>
       <div class="meta">
-        <span class="pill">Version 1.0.0</span>
+        <span class="pill">Version 1.0.4</span>
         <span class="pill">Author: Peter Moreno</span>
         <span class="pill">Local-first</span>
       </div>
@@ -133,7 +144,7 @@
   <section class="panel">
     <h2>Features</h2>
     <ul>
-      <li>Set reminders from the right-click menu or toolbar.</li>
+      <li>Set reminders from the message-list right-click menu.</li>
       <li>Use quick presets: test, 1 hour, 1 day, or custom date/time.</li>
       <li>Review Due and Active reminders from the toolbar dropdown.</li>
       <li>Search active reminders quickly.</li>
@@ -162,6 +173,12 @@
       <li>No tracking or analytics are used.</li>
       <li>All reminders are stored locally inside Thunderbird.</li>
     </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Updates and Source</h2>
+    <p>For updates, release downloads, and source code, visit the official GitHub repository.</p>
+    <p><a href="https://github.com/PetersMinistry/HitMeUp" target="_blank" rel="noopener">github.com/PetersMinistry/HitMeUp</a></p>
   </section>
 
   <section class="panel">

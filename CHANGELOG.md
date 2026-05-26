@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4] - 2026-05-26
+
+Maintenance update for add-on information and metadata.
+
+### Changed
+
+- Refreshed add-on information and metadata for the current release.
+
 ## [1.0.3] - 2026-05-16
 
 Stabilization patch for due reminders that become due while Thunderbird is minimized or sitting in the tray.
