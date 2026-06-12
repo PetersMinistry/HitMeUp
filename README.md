@@ -73,6 +73,3 @@ Code is licensed under the [MIT License](LICENSE.md).
 
 The HitMeUp Reminder name, logo, icons, screenshots, and other branding assets are not covered by the MIT License. See [ASSET_LICENSE.md](ASSET_LICENSE.md).
 
-## Author
-
-Created by Peter Moreno.
