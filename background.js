@@ -41,29 +41,6 @@ async function ensureReminderTag() {
   if (!browser.messages) return false;
 
   try {
-    if (browser.messages.listTags) {
-      const tags = await browser.messages.listTags();
-      const existingTag = tags.find((tag) => tag.key === REMINDER_TAG_KEY);
-
-      if (existingTag) {
-        if (
-          browser.messages.updateTag &&
-          (existingTag.color !== REMINDER_TAG_COLOR || existingTag.tag !== REMINDER_TAG_NAME)
-        ) {
-          await browser.messages.updateTag(REMINDER_TAG_KEY, {
-            tag: REMINDER_TAG_NAME,
-            color: REMINDER_TAG_COLOR
-          });
-        }
-        return true;
-      }
-
-      if (browser.messages.createTag) {
-        await browser.messages.createTag(REMINDER_TAG_KEY, REMINDER_TAG_NAME, REMINDER_TAG_COLOR);
-        return true;
-      }
-    }
-
     if (browser.messages.tags && browser.messages.tags.list) {
       const tags = await browser.messages.tags.list();
       const existingTag = tags.find((tag) => tag.key === REMINDER_TAG_KEY);

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.5] - 2026-07-10
+
+### Changed
+
+- Removed deprecated `messages.listTags()` API path — now uses only `messages.tags.list()` (the standard API since Thunderbird 121). Eliminates console deprecation warning on Betterbird/Thunderbird 121+.
+
+### Validation Notes
+
+- Manifest JSON parses successfully.
+- Background script syntax check passes.
+- Confirmed zero remaining references to `messages.listTags`, `messages.updateTag`, or `messages.createTag`.
+
 ## [1.0.4] - 2026-05-26
 
 Maintenance update for add-on information and metadata.

@@ -46,7 +46,7 @@ Download the current `.xpi` from [GitHub Releases](https://github.com/PetersMini
 
 ## Current Version
 
-**1.0.4** - Maintenance update for add-on information and metadata.
+**1.0.5** - Removed deprecated `messages.listTags()` API call for Thunderbird 121+ compatibility.
 
 ## Privacy
 
